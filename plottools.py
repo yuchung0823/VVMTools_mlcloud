@@ -86,7 +86,3 @@ class VVMPlot():
         plt.savefig(path_savefig+'/'+title,dpi=300)
         #plt.show()
         plt.close()
-
-Plot = VVMPlot()
-Plot.hovmoller()
-Plot.BL_height()
