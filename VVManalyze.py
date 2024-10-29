@@ -137,8 +137,40 @@ class VVMTools_BL(VVMTools):
             return np.array(h)
 
         elif howToSearch == "wth":
-            print("Error")
-            pass
+            mask = np.where(var>=0,1,-1)
+            zc_wth = np.zeros((3,var.shape[0]))
+            zc = zc[1:]
+            for t in range(var.shape[0]):
+                temp = mask[t,1:] - mask[t,:-1]
+
+                # Default zero boundary if w'θ' is small
+                if np.max(var[t])<threshold:
+                    k_lower = k_mid = k_upper = 0
+
+                else:
+                    # Find lower boundary
+                    try:
+                        k_lower = np.argwhere(temp==-2)[0][0] + 1
+                    except: 
+                        k_lower = 0
+                    
+                    # Find mid boundary
+                    k_mid = np.argmin(var[t]) + 1
+                    
+                    # Find upper boundary
+                    try:
+                        k_upper = np.argwhere(temp==2)[0][0] + 1
+                    except:
+                        k_upper = 0
+                
+                # Zero upper boundary if the maximum value after the mid boundary is small
+                if np.max(var[t, np.argmin(var[t]):]) < threshold:
+                    k_upper = 0
+
+                # Store the boundaries for this time step
+                zc_wth[0,t], zc_wth[1,t], zc_wth[2,t] = zc[k_lower], zc[k_mid], zc[k_upper]
+            
+            return zc_wth
 
         else:
             print("Without this searching approach")
