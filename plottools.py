@@ -1,140 +1,182 @@
-from vvmtools import VVMTools
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib import colors
+import matplotlib as mpl
+import os, sys
+import logging
 
+class dataPlotters:
+    def __init__(self, exp, figpath, domain, units, ticks=None, time_fmt='%H'):
+        self.EXP              = exp
+        self.FIGPATH          = figpath
+        self.DOMAIN           = domain
+        self.DOMAIN_UNITS     = units
+        self.CUSTOM_TIME_FMT  = time_fmt
+        self.DOMAIN_TICKS = self._default_dim_ticks(ticks)
 
-class VVMPlot_BL(VVMTools):
-    """
-    A subclass of VVMTools to handle plotting for boundary layer analysis, 
-    such as Hovmöller diagrams and boundary layer height visualizations.
-    """
-    def __init__(self,
-                 case_path,
-                 time=np.arange(721),
-                 fontsize=25,
-                 xc_ticks_linspace=5,
-                 time_str_hr=5,
-                 dt_min=2,
-                 time_ticks_space_hr=2,
-                 case_name='',
-                 region_name=''
-                 ):
-        """
-        Initializes the VVMPlot_BL instance for plotting.
+        self._check_create_figpath()
 
-        :param case_path: Path to the case simulation data.
-        :param time: Array of time steps for plotting.
-        :param fontsize: Font size for plot text.
-        :param xc_ticks_linspace: Number of ticks for the x-axis.
-        :param time_str_hr: Start time (in hours) for the time axis ticks.
-        :param dt_min: Time step in the simulation.
-        :param time_ticks_space_hr: Spacing of time ticks in hours.
-        :param case_name: Name of the simulation case.
-        :param region_name: Name of the region under analysis.
-        """
-        super().__init__(case_path)
-        self.time = time
-        self.zc = self.DIM['zc']/1000
-        self.yc = self.DIM['yc']/1000
-        self.xc = self.DIM['xc']/1000
-        self.fs = fontsize
-        self.xc_ticks_space=int(xc_ticks_linspace) # Set number of x-axis ticks
-        self.xc_ticks=np.round(np.linspace(0,self.xc[-1]+(self.xc[1]-self.xc[0])/2,xc_ticks_linspace),1)
-        self.time_ticks_space = int(time_ticks_space_hr*60/dt_min) # Time axis tick spacing
-        self.time_ticks=np.hstack(( np.arange(time_str_hr,25,time_ticks_space_hr), np.arange(1,time_str_hr+1,time_ticks_space_hr)))
-        self.case_name=case_name
-        self.region_name=region_name
-        plt.rcParams.update({'font.size':self.fs}) # Update matplotlib font settings globally
-        
-    def hovmoller(self,
-                  data,
-                  figsize=(14,12),
-                  cmap=cm.Spectral_r,
-                  levels=np.arange(0,51,2.5),
-                  title=r'$NO_{x,}$ $_{sfc}$',
-                  cb_title='[ppb]',
-                  path_savefig='.'):
-        """
-        Plot a Hovmöller diagram of the input data.
+    def _default_dim_ticks(self, ticks_in):
+        ticks = ticks_in or {'x':None, 'y':None, 'z':None, 't':None}
+        dim_ticks = {}
+        for key, value in ticks.items():
+            dim_ticks[key] = value or self._get_clear_ticks( ax_name = key )
+        return dim_ticks
 
-        :param data: 2D array of data (time vs x-coordinates).
-        :param figsize: Size of the figure.
-        :param cmap: Colormap for the plot.
-        :param levels: Contour levels for the color mapping.
-        :param title: Title for the plot.
-        :param cb_title: Title for the colorbar.
-        :param path_savefig: Path to save the figure.
-        """
-        fig, ax = plt.subplots(figsize=figsize)
+    def _check_create_figpath(self):
+        if not os.path.isdir(self.FIGPATH):
+            print(f'create fig folder ... {self.FIGPATH}')
+            os.system(f'mkdir -p {self.FIGPATH}')
 
-        # Create a colormap plot (pcolormesh) using x-coordinates and time
-        Plot = ax.pcolormesh(self.xc,self.time,data,cmap=cmap,norm=colors.BoundaryNorm(levels,cmap.N))
-        cb = plt.colorbar(Plot,orientation='vertical',extend='max',ticks=levels[::2])
-        cb.ax.tick_params(length=8)
-        cb.ax.set_title(cb_title,fontsize=self.fs-5)
+    def _default_setting(self):
+        plt.rcParams.update({'font.size':17,
+                             'axes.linewidth':2,
+                             'lines.linewidth':2})
 
-        # Settings
-        ax.set_xticks(np.linspace(0,self.xc[-1],5),self.xc_ticks)
-        ax.set_yticks(self.time[::self.time_ticks_space],self.time_ticks)
-        ax.set_xlim(0,self.xc[-1])
-        ax.set_ylim(0,self.time[-1])
-        ax.tick_params(length=8)
-        ax.grid(':')
-        ax.set_xlabel('X')
-        ax.set_ylabel('LST')
-        ax.set_title(title,loc='left')
-        ax.set_title(self.case_name+'\n'+self.region_name,loc='right',fontsize=self.fs-2)
-        plt.savefig(path_savefig+'/hovmoller_'+self.case_name,dpi=300,bbox_inches="tight")
-        plt.close()
+    def _create_figure(self, figsize):
+        self._default_setting()
+        fig     = plt.figure(figsize=figsize)
+        if figsize[0] / figsize[1] >= 1:
+            ax      = fig.add_axes([0.1,0.1,0.77,0.8])
+            cax     = fig.add_axes([0.9,0.1,0.02,0.8])
+        else:
+            ax      = fig.add_axes([0.15,  0.1, 0.7, 0.8])
+            cax     = fig.add_axes([0.88, 0.1, 0.03, 0.8])
+        return fig, ax, cax
 
-    def BL_height(self,
-                  data_lines=np.random.rand(7,720),
-                  data_shading=np.random.rand(50,720),
-                  figsize=(18,10),
-                  cmap=cm.RdBu_r,
-                  levels=np.arange(-0.04,0.041,0.005),
-                  label=[r'$\theta$ + 0.5 K',r'max d$\theta$/dz','TKE','Enstrophy',r"top$ (\overline{w'\theta'}+)$",r"min$ (\overline{w'\theta'})$",r"top$ (\overline{w'\theta'}-)$"],
-                  line_color=['dimgray','hotpink','darkorange','seagreen','dodgerblue','navy','darkviolet'],
-                  title=r'Vertical $\theta$ transport',
-                  cb_title='[K·m/s]',
-                  path_savefig='.'):
-        """
-        Plot boundary layer height with multiple data lines and shaded regions.
+    def _get_cmap(self, cmap_name='jet'):
+        if cmap_name=='':
+            # define custom colormap
+            pass
+        else:
+           cmap = mpl.pyplot.get_cmap(cmap_name)
+        return cmap
 
-        :param data_lines: Array of data lines to plot (e.g., boundary layer heights).
-        :param data_shading: 2D array of shaded data (e.g., vertical profiles).
-        :param figsize: Size of the figure.
-        :param cmap: Colormap for the shaded data.
-        :param levels: Contour levels for color shading.
-        :param label: Labels for the data lines.
-        :param line_color: Colors for the data lines.
-        :param title: Title for the plot.
-        :param cb_title: Title for the colorbar.
-        :param path_savefig: Path to save the figure.
-        """
-        fig, ax = plt.subplots(figsize=figsize)
+    def _get_clear_ticks(self, ax_name, ax_lim=None):
+        # subdomain default ticks
+        lim = ax_lim or (self.DOMAIN[ax_name].min(), self.DOMAIN[ax_name].max())
+        if ax_name=='t':
+            #align with hourly location
+            length=(lim[1] - lim[0])
 
-        # Create a colormap plot for the shading data 
-        Plot = ax.pcolormesh(self.time,self.zc[1:],data_shading,cmap=cmap,norm=colors.BoundaryNorm(levels,cmap.N))
-        cb = plt.colorbar(Plot,orientation='vertical',extend='both',ticks=levels[::2])
-        cb.ax.tick_params(length=8)
-        cb.ax.set_title(cb_title,fontsize=self.fs-5)
+            if length  // np.timedelta64(1,'D') > 1:
+              self.TIME_FMT = '%D'
+              delta = np.timedelta64(1,'D') 
+              left = (lim[0]-np.timedelta64(1,'s')).astype('datetime64[D]')
+            elif length  // np.timedelta64(1,'h') > 12:
+              self.TIME_FMT = '%H'
+              delta = np.timedelta64(3,'h') 
+              left = (lim[0]-np.timedelta64(0,'s')).astype('datetime64[h]')
+            elif length  // np.timedelta64(1,'h') > 1:
+              self.TIME_FMT = '%H'
+              delta = np.timedelta64(1,'h') 
+              left = (lim[0]-np.timedelta64(1,'s')).astype('datetime64[h]')
+            else :
+              self.TIME_FMT = '%H:%M'
+              delta = np.timedelta64(10,'m')
+              mn = int(lim[0].astype(str)[11:19].split(':')[-1])
+              left = (lim[0] - np.timedelta64(mn%10,'m'))
+            
+            ticks=np.arange(left,left+length+delta*2, delta)
+        elif ax_name=='z':
+            nticks = 11
+            length = (lim[1]-lim[0])
+            interval = length / (nticks - 1)
+            if interval >= 1e-3:
+              interval = np.round(interval,2)
+            ticks = np.arange(lim[0],lim[1]+interval,interval)
+        else:
+            nticks = 5
+            ticks = np.linspace(lim[0], lim[1], nticks)
+        return ticks
+ 
 
-        # Plot the data lines (e.g., boundary layer heights)
-        for i in range(len(data_lines)):
-            plt.plot(self.time,data_lines[i],'o',color=line_color[i],markersize=3,label=label[i])
-        
-        # Settings
-        ax.set_xticks(self.time[::self.time_ticks_space],self.time_ticks)
-        ax.set_xlim(0,self.time[-1])
-        ax.set_ylim(0,self.zc[-1])
-        ax.legend(loc='upper right',markerscale=4)
-        ax.grid(':')
-        ax.set_xlabel('LST')
-        ax.set_ylabel('Height')
-        ax.set_title(title,loc='left')
-        ax.set_title(self.case_name+'\n'+self.region_name,loc='right',fontsize=self.fs-2)
-        plt.savefig(path_savefig+'/BL_height_'+self.case_name+'_'+self.region_name,dpi=300,bbox_inches="tight")
-        plt.close()
+    def _determine_ticks_and_lim(self, ax_name, ax_lim):
+        if type(ax_lim) == type(None):
+            # use the ticks and limit in class setting
+            self.TIME_FMT = self.CUSTOM_TIME_FMT
+            lim   = (self.DOMAIN[ax_name].min(), self.DOMAIN[ax_name].max())
+            ticks = self.DOMAIN_TICKS[ax_name]
+        else:
+            lim   = ax_lim
+            ticks = self._get_clear_ticks(ax_name, ax_lim)
+
+        return  lim, ticks
+
+    def draw_xt(self, data, \
+                      levels, \
+                      extend, \
+                      x_axis_dim = 'x',\
+                      cmap_name='bwr', \
+                      title_left = '', \
+                      title_right = '', \
+                      xlim = None, \
+                      ylim = None,\
+                      figname='',\
+               ):
+        xlim, xticks = self._determine_ticks_and_lim(ax_name=x_axis_dim, ax_lim=xlim)
+        ylim, yticks = self._determine_ticks_and_lim(ax_name='t', ax_lim=ylim)
+
+        fig, ax, cax = self._create_figure(figsize=(8,10))
+        plt.sca(ax)
+        cmap = self._get_cmap(cmap_name)
+        norm = mpl.colors.BoundaryNorm(boundaries=levels, \
+                  ncolors=256, extend=extend)
+        PO = plt.pcolormesh(self.DOMAIN[x_axis_dim], self.DOMAIN['t'], data, \
+                       cmap=cmap, norm=norm, \
+                      )
+        plt.colorbar(PO, cax=cax)
+        plt.xticks(xticks)
+        plt.yticks(yticks)
+        ax.yaxis.set_major_formatter(mpl.dates.DateFormatter(self.TIME_FMT))
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        plt.ylabel(f'time [{self.DOMAIN_UNITS["t"]}]')
+        plt.xlabel(f'{x_axis_dim} [{self.DOMAIN_UNITS[x_axis_dim]}]')
+        plt.grid()
+        plt.title(f'{title_right}\n{self.EXP}', loc='right', fontsize=15)
+        plt.title(f'{title_left}', loc='left', fontsize=20, fontweight='bold')
+        if len(figname)>0:
+            plt.savefig(f'{self.FIGPATH}/{figname}', dpi=200)
+        return fig, ax, cax
+
+    def draw_zt(self, data, \
+                      levels, \
+                      extend, \
+                      pblh_dicts={},\
+                      cmap_name='bwr',\
+                      title_left = '', \
+                      title_right = '', \
+                      xlim = None, \
+                      ylim = None,\
+                      figname='',\
+               ):
+        xlim, xticks = self._determine_ticks_and_lim(ax_name='t', ax_lim=xlim)
+        ylim, yticks = self._determine_ticks_and_lim(ax_name='z', ax_lim=ylim)
+
+        fig, ax, cax = self._create_figure(figsize=(10,6))
+        plt.sca(ax)
+        cmap = self._get_cmap(cmap_name)
+        norm = mpl.colors.BoundaryNorm(boundaries=levels, \
+                  ncolors=256, extend=extend)
+        PO = plt.pcolormesh(self.DOMAIN['t'], self.DOMAIN['z'], data, \
+                       cmap=cmap, norm=norm, \
+                      )
+        plt.colorbar(PO, cax=cax)
+        if (len(pblh_dicts) > 0):
+            for key, value in pblh_dicts.items():
+                plt.scatter(self.DOMAIN['t'], value, s=10, label=key, zorder=10)
+            plt.legend(loc='upper right').set_zorder(50)
+        plt.xticks(xticks)
+        ax.xaxis.set_major_formatter(mpl.dates.DateFormatter(self.TIME_FMT))
+        plt.yticks(yticks)
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        plt.xlabel(f'time [{self.DOMAIN_UNITS["t"]}]')
+        plt.ylabel(f'z [{self.DOMAIN_UNITS["z"]}]')
+        plt.grid()
+        plt.title(f'{title_right}\n{self.EXP}', loc='right', fontsize=15)
+        plt.title(f'{title_left}', loc='left', fontsize=20, fontweight='bold')
+        if len(figname)>0:
+            plt.savefig(f'{self.FIGPATH}/{figname}', dpi=200)
+        return fig, ax, cax
+

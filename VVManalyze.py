@@ -86,6 +86,63 @@ class VVMTools_BL(VVMTools):
         w_th = np.mean(w_prime*th_prime,axis=(1,2))
         return w_th
     
+
+    def find_BL_boundary(self, var, howToSearch, threshold=0.01):
+        # Get the height (zc) and mean theta profile
+        zc = (self.get_var("zc", 0).to_numpy()/1000)
+
+        if howToSearch == "th_plus05K":
+            # Find the height where theta exceeds surface value by 0.5K
+            th_find = var - (var[:, 0].reshape(var.shape[0], 1) + 0.5)
+
+            h_BL_th_plus05 = []
+            for t in range(len(th_find)):
+                h_BL_th_plus05.append(zc[np.where(th_find[t] < threshold)[0][-1]])
+            
+            return np.array(h_BL_th_plus05)
+
+        elif howToSearch == "dthdz":
+            # Compute vertical gradient of theta (dθ/dz)
+            dth_dz = (var[:, 1:] - var[:, :-1]) / (zc[1:] - zc[:-1])
+            
+            # Find the height where the gradient is maximum for each time step
+            zc = zc[1:]
+            h_BL_dthdz = []
+            for t in range(len(dth_dz)):
+                h_BL_dthdz.append(zc[np.argmax(dth_dz[t])])
+            
+            return np.array(h_BL_dthdz)
+
+        elif howToSearch == "threshold":
+            positive_mask = np.swapaxes(var, 0, 1) > threshold
+            index = np.argwhere(positive_mask)
+            
+            # Mapping of indices to heights based on threshold crossing
+            k, i = index[:, 0], index[:, 1]
+            i_k_map = {}
+            
+            for ii in range(len(i)):
+                if i[ii] not in i_k_map:
+                    i_k_map[i[ii]] = k[ii]
+                else:
+                    if k[ii] > i_k_map[i[ii]]:
+                        i_k_map[i[ii]] = k[ii]
+            
+            # Calculate boundary layer height for each column
+            zc = zc[1:]
+            h = np.zeros(len(var))
+            for key, value in i_k_map.items():
+                h[key] = zc[value]
+
+            return np.array(h)
+
+        elif howToSearch == "wth":
+            pass
+
+        else:
+            print("Without this searching approach")
+    
+'''
     def h_BL_dthdz(self, time_steps, func_config):
         """
         Calculate the boundary layer height based on the maximum gradient of theta (dθ/dz).
@@ -201,3 +258,4 @@ class VVMTools_BL(VVMTools):
             zc_wth[0,t], zc_wth[1,t], zc_wth[2,t] = zc[k_lower], zc[k_mid], zc[k_upper]
         
         return zc_wth
+'''
