@@ -137,6 +137,7 @@ class VVMTools_BL(VVMTools):
             return np.array(h)
 
         elif howToSearch == "wth":
+            print("Error")
             pass
 
         else:
