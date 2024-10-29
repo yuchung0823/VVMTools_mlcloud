@@ -45,6 +45,7 @@ for i in range(2):
         h_BL_dthdz = myTool.find_BL_boundary(th,howToSearch='dthdz')
         h_BL_TKE = myTool.find_BL_boundary(TKE,howToSearch='threshold',threshold=0.08)
         h_BL_Enstrophy = myTool.find_BL_boundary(Enstrophy,howToSearch='threshold',threshold=1e-5)
+        h_BL_wth = myTool.find_BL_boundary(w_th,howToSearch='wth',threshold=1e-3)
 
         # create dataPlotter class
         figpath           = './fig/'
@@ -63,6 +64,9 @@ for i in range(2):
                                                 r'max d$\theta$/dz': h_BL_dthdz,\
                                                 'TKE': h_BL_TKE,\
                                                 'Enstrophy': h_BL_Enstrophy ,\
+                                                r"top$ (\overline{w'\theta'}+)$":h_BL_wth[0] ,\
+                                                r"min$ (\overline{w'\theta'})$":h_BL_wth[1] ,\
+                                                r"top$ (\overline{w'\theta'}-)$":h_BL_wth[2] ,\
                                                 },\
                                     title_left  = r'Vertical $\theta$ transport', \
                                     title_right = region, \
