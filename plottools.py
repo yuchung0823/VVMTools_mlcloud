@@ -165,7 +165,7 @@ class dataPlotters:
         if (len(pblh_dicts) > 0):
             for key, value in pblh_dicts.items():
                 plt.scatter(self.DOMAIN['t'], value, s=10, label=key, zorder=10)
-            plt.legend(loc='upper right').set_zorder(50)
+            plt.legend(loc='upper right',markerscale=3).set_zorder(50)
         plt.xticks(xticks)
         ax.xaxis.set_major_formatter(mpl.dates.DateFormatter(self.TIME_FMT))
         plt.yticks(yticks)
