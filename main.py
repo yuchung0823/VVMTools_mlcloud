@@ -1,6 +1,6 @@
 import numpy as np
 from VVManalyze import VVMTools_BL
-from plottools import dataPlotters
+from vvmtools.plot import DataPlotter
 import matplotlib.pyplot as plt
 
 # prepare expname and data coordinate
@@ -11,7 +11,7 @@ nt = 721; t = np.arange(nt)*np.timedelta64(2,'m')+np.datetime64('2024-01-01 05:0
 time = np.arange(nt)
 
 # Define the path to the simulation data for different cases
-path = lambda case:'/home/chung0823/cloud2024/VVM_Data/%s/'%(case)
+path = lambda case:'/data/chung0823/data_VVM/VVM_Data/%s/'%(case)
 
 # List of simulation cases and their corresponding names
 case_list = ['pbl_hetero_dthdz_8','pbl_hetero_dthdz_11','OceanGrass_S1_new','OceanGrass_S1_landmid_new','OceanGrass_S2_new_new','OceanGrass_S2_landmid_newnew']
@@ -51,7 +51,7 @@ for i in range(2):
         figpath           = './fig/'
         data_domain       = {'x':x, 'y':y, 'z':z, 't':t}
         data_domain_units = {'x':'km', 'y':'km', 'z':'km', 't':'LocalTime'}
-        dplot = dataPlotters(expname, figpath, data_domain, data_domain_units)
+        dplot = DataPlotter(expname, figpath, data_domain, data_domain_units)
 
         # draw z-t diagram
         # input data dimension is (nz, nt)
@@ -73,5 +73,5 @@ for i in range(2):
                                     figname     = 'BL_height_'+expname+'_'+region,\
                             )
 
-        plt.show()
+        #plt.show()
 

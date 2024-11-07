@@ -1,7 +1,7 @@
-from vvmtools import VVMTools
+from vvmtools.analyze import DataRetriever
 import numpy as np
 
-class VVMTools_BL(VVMTools):
+class VVMTools_BL(DataRetriever):
     """
     A subclass of VVMTools to provide additional methods specific to 
     boundary layer calculations such as TKE, enstrophy, and boundary 
@@ -57,8 +57,14 @@ class VVMTools_BL(VVMTools):
             eta = np.squeeze(self.get_var('eta_2', time_steps, numpy=True, domain_range=func_config['domain_range']))
         zeta = np.squeeze(self.get_var('zeta', time_steps, numpy=True, domain_range=func_config['domain_range']))
 
-        # Calculate and return mean enstrophy (xi^2 + eta^2 + zeta^2)
-        return np.nanmean((xi**2+eta**2+zeta**2), axis=(1,2))
+        # Regrid vorticity to calculate Enstrophy
+        xi_inter = (xi[:, 1:, 1:] + xi[:, :-1, 1:] + xi[:, 1:, :-1] + xi[:, :-1, :-1])[1:] / 4
+        eta_inter = (eta[1:, :, 1:] + eta[:-1, :, 1:] + eta[1:, :, :-1] + eta[:-1, :, :-1])[:, 1:] / 4
+        zeta_inter = (zeta[1:, 1:] + zeta[:-1, 1:] + zeta[1:, :-1] + zeta[:-1, :-1])[:, :, 1:] / 4
+        
+        # Calculate and return mean enstrophy 
+        enstrophy = xi_inter ** 2 + eta_inter ** 2 + zeta_inter ** 2
+        return np.nanmean((enstrophy), axis=(1,2))
 
     def calc_w_th(self, time_steps, func_config):
         """
@@ -107,12 +113,13 @@ class VVMTools_BL(VVMTools):
 
         if howToSearch == "th_plus05K":
             # Find the height where theta exceeds surface value by 0.5K
-            th_find = var - (var[:, 0].reshape(var.shape[0], 1) + 0.5)
+            th_find = abs(var - (var[:, 0].reshape(var.shape[0], 1) + 0.5))
 
             # Identify boundary layer height for each time step
             h_BL_th_plus05 = []
             for t in range(len(th_find)):
-                h_BL_th_plus05.append(zc[np.where(th_find[t] < threshold)[0][-1]])            
+                #h_BL_th_plus05.append(zc[np.where(th_find[t] < threshold)[0][-1]]) 
+                h_BL_th_plus05.append(zc[np.argmin(th_find[t])])         
             return np.array(h_BL_th_plus05)
 
         elif howToSearch == "dthdz":
@@ -165,16 +172,16 @@ class VVMTools_BL(VVMTools):
                 else:
                     # Find lower boundary
                     try:
-                        k_lower = np.argwhere(temp==-2)[0][0] + 1
+                        k_lower = np.argwhere(temp==-2)[0][0]
                     except: 
                         k_lower = 0
                     
                     # Find mid boundary
-                    k_mid = np.argmin(var[t]) + 1
+                    k_mid = np.argmin(var[t])
                     
                     # Find upper boundary
                     try:
-                        k_upper = np.argwhere(temp==2)[0][0] + 1
+                        k_upper = np.argwhere(temp==2)[0][0]
                     except:
                         k_upper = 0
                 
